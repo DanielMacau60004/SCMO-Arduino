@@ -1,16 +1,16 @@
-#pragma once
-
 #ifndef CLOUD_H
 #define CLOUD_H
 
+#include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
 typedef void (*fetchFunction)(DynamicJsonDocument);
 
-void initCloud();
-void getRequest(const char* endpoint, fetchFunction fun);
-void postRequest(const char* endpoint, JsonObject& obj, fetchFunction fun);
+void getRequest(const char* url, fetchFunction fun);
+void postRequest(const char* url, JsonObject& obj, fetchFunction fun);
+void fetchCurrentDate();
+unsigned long getCurrentDate();
 
 #endif

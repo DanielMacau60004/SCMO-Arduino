@@ -1,7 +1,5 @@
-#pragma once
-
-#ifndef WIFI_H
-#define WIFI_H
+#ifndef INTERNET_H
+#define INTERNET_H
 
 #include <WiFi.h>
 #include "structures.h"

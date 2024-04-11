@@ -1,5 +1,3 @@
-#pragma once
-
 #ifndef STRUCTURES_H
 #define STRUCTURES_H
 
@@ -19,7 +17,7 @@ struct System {
   SystemState status;  //Current status
 
   unsigned long nextTime;
-  unsigned ong currentTime;  //Time that start the
+  unsigned long currentTime;  //Time that start the
 
   unsigned int duration;      //time in minutes
   unsigned int hourToStart;   //hour to start the system

@@ -1,4 +1,4 @@
-#include "wifi.h"
+#include "internet.h"
 
 const char* CONFIG_FILE = "/config.json";
 

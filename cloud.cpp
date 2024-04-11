@@ -4,14 +4,12 @@ const char* URL = "http://85.244.117.107";
 const char* END_POINT_GET = "/test/McMacau";
 const char* END_POINT_POST = "/test";
 
-void handleGet(DynamicJsonDocument json) {
-  String dataValue = json["result"]["uuid"];
-  Serial.print("UUID: ");
-  Serial.println(dataValue);
-}
+const char* URL_DATETIME_UTC = "https://worldtimeapi.org/api/timezone/utc";
+
+unsigned long currentDate = 0;
 
 // Temporary method...
-void initCloud() {
+/*void initCloud() {
 
   //Get request
   Serial.println("\nPerform GET");
@@ -27,19 +25,19 @@ void initCloud() {
   root["ip"] = "23.212.213.21";
   postRequest(END_POINT_POST, root, handleGet);
   
-}
+}*/
 
 /*
 * Create a get request to the cloud
 *
-* const char* endpoint -> request endpoint
+* const char* url -> request url
 * fetchFunction fun    -> function to handle the data returned
 */
-void getRequest(const char* endpoint, fetchFunction fun) {
+void getRequest(const char* url, fetchFunction fun) {
   if (WiFi.status() != WL_CONNECTED)
     return;
 
-  String requestURL = String(URL) + endpoint;
+  String requestURL = url;
   HTTPClient http;
   http.begin(requestURL);
 
@@ -66,15 +64,15 @@ void getRequest(const char* endpoint, fetchFunction fun) {
 /*
 * Create a post request to the cloud
 *
-* const char* endpoint -> request endpoint
+* const char* url -> request url
 * JsonObject& obj      -> json object to be sent
 * fetchFunction fun    -> function to handle the data returned
 */
-void postRequest(const char* endpoint, JsonObject& obj, fetchFunction fun) {
+void postRequest(const char* url, JsonObject& obj, fetchFunction fun) {
   if (WiFi.status() != WL_CONNECTED)
     return;
 
-  String requestURL = String(URL) + endpoint;
+  String requestURL = url;
   HTTPClient http;
   http.begin(requestURL);
   http.addHeader("Content-Type", "application/json");
@@ -82,7 +80,7 @@ void postRequest(const char* endpoint, JsonObject& obj, fetchFunction fun) {
   String jsonString;
   serializeJson(obj, jsonString);
   int httpResponseCode = http.POST(jsonString);
-
+  Serial.println(jsonString);
   if (httpResponseCode == HTTP_CODE_OK) {
     String response = http.getString();
     int responseLength = http.getSize();
@@ -100,4 +98,17 @@ void postRequest(const char* endpoint, JsonObject& obj, fetchFunction fun) {
   }
 
   http.end();
+}
+
+void updateCurrentDate(DynamicJsonDocument json) {
+  unsigned long date = json["unixtime"].as<unsigned long>();
+  currentDate = date - millis() / 1000;
+}
+
+void fetchCurrentDate() {
+  getRequest(URL_DATETIME_UTC, updateCurrentDate);
+}
+
+unsigned long getCurrentDate() {
+  return currentDate + millis() / 1000;
 }
