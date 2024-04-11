@@ -1,13 +1,8 @@
 #include "cloud.h"
 
-const char* SSID = "MEO-6B144F";
-const char* PASSWORD = "CA22156F4B";
-
 const char* URL = "http://85.244.117.107";
 const char* END_POINT_GET = "/test/McMacau";
 const char* END_POINT_POST = "/test";
-
-const int WIFI_CONNECTION_DELAY = 500;
 
 void handleGet(DynamicJsonDocument json) {
   String dataValue = json["result"]["uuid"];
@@ -15,27 +10,15 @@ void handleGet(DynamicJsonDocument json) {
   Serial.println(dataValue);
 }
 
-/*
-* Starts the wifi conenction
-*/
+// Temporary method...
 void initCloud() {
 
-  Serial.println("\n\n\n");
-  WiFi.begin(SSID, PASSWORD);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(WIFI_CONNECTION_DELAY);
-    Serial.print(".");
-  }
-
-  Serial.println("\nWiFi connected");
-
   //Get request
-  Serial.println("\n\nPerform GET");
+  Serial.println("\nPerform GET");
   getRequest(END_POINT_GET, handleGet);
 
   //Post request
-  Serial.println("\n\nPerform POST");
+  Serial.println("Perform POST");
   DynamicJsonDocument jsonBuffer(1024);
   JsonObject root = jsonBuffer.to<JsonObject>();
   root["uuid"] = "1212";

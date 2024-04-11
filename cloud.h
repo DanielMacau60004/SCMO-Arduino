@@ -1,11 +1,11 @@
+#pragma once
+
 #ifndef CLOUD_H
 #define CLOUD_H
 
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-
-//#include <Arduino.h>
 
 typedef void (*fetchFunction)(DynamicJsonDocument);
 
