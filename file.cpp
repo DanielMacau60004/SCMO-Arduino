@@ -1,7 +1,5 @@
 #include "file.h"
 
-const int CHIP_SELECT = 5;
-
 File dataFile;
 
 void initFileSystem(bool format) {
@@ -22,8 +20,8 @@ void formatDisk() {
   }
 }
 
-void writeFile(const char* file, JsonDocument& json) {
-  dataFile = SPIFFS.open(file, "w");
+void writeFile(const char* file, JsonDocument& json, char * mode) {
+  dataFile = SPIFFS.open(file, mode);
   if (!dataFile) {
     Serial.println("Error opening file for writing!");
     return;
@@ -37,6 +35,14 @@ void writeFile(const char* file, JsonDocument& json) {
 
   dataFile.println(jsonString);
   dataFile.close();
+}
+
+void writeFile(const char* file, JsonDocument& json) {
+  writeFile(file, json, "w");
+}
+
+void appendFile(const char* file, JsonDocument& json) {
+  writeFile(file, json, "a");
 }
 
 void readFile(const char* file, JsonDocument& json) {
@@ -54,6 +60,31 @@ void readFile(const char* file, JsonDocument& json) {
 
   dataFile.close();
 }
+
+void readAppendFile(const char* file, JsonArray& jsonArray) {
+  File dataFile = SPIFFS.open(file, "r");
+  if (!dataFile) {
+    Serial.println("Error opening file for reading!");
+    return;
+  }
+
+  String line;
+  while (dataFile.available()) {
+    line = dataFile.readStringUntil('\n');
+    
+    DynamicJsonDocument doc(200);
+    DeserializationError error = deserializeJson(doc, line);
+    if (error) {
+      Serial.print("Failed to parse JSON: ");
+      Serial.println(error.c_str());
+    } else {
+      jsonArray.add(doc.as<JsonObject>());
+    }
+  }
+
+  dataFile.close();
+}
+
 
 bool existFile(const char* file) {
   return SPIFFS.exists(file);

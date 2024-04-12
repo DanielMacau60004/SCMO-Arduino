@@ -1,10 +1,7 @@
 #ifndef STRUCTURES_H
 #define STRUCTURES_H
 
-struct WifiConfig {
-  const char* WIFI_SSID;  //Wifi name
-  const char* WIFI_PWD;   //Wifi password
-};
+#include <ArduinoJson.h>
 
 enum SystemState {
   RUNNING,  //WSystem is running
@@ -12,27 +9,25 @@ enum SystemState {
   WAITING   //System is waiting for the next event/ next irrigation
 };
 
-struct System {
-  bool active;         // If it is running or not
-  SystemState status;  //Current status
+extern DynamicJsonDocument wifiConfig;
 
-  unsigned long nextTime;
-  unsigned long currentTime;  //Time that start the
+extern DynamicJsonDocument sys;
 
-  unsigned int duration;      //time in minutes
-  unsigned int hourToStart;   //hour to start the system
-  bool rotation[7];  //week days
-};
 
-struct SystemStatusNot {
+
+struct SystemStatus {
   SystemState status;
-  unsigned long time;  //Time when the event was registered
+
+  //Computate abg temperature and humidity
+  float sumTemperature = 0;
+  float sumHumididty = 0;
+  unsigned int totalRecords = 0;
+
+  unsigned long start;
+  unsigned long end;  //Time when the event was registered
+  SystemStatus* next;
 };
 
-struct SystemDataNot {
-  float temperature;
-  float humidity;
-  unsigned long time;  //Time when the event was registered
-};
+
 
 #endif

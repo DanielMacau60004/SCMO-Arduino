@@ -9,9 +9,9 @@ void setup() {
   initFileSystem();
 
   //Wifi config setup
-  WifiConfig defaultWifiConfig = { "MEO-6B144F", "CA22156F4B" };
+  //WifiConfig defaultWifiConfig = { "MEO-6B144F", "CA22156F4B" };
   //WifiConfig defaultWifiConfig = { "Rede do Lol", "miguel123" };
-  storeWifiConfig(defaultWifiConfig);
+  //storeWifiConfig("{ \"ssid\": \"MEO-6B144F\", \"pwd\": \"CA22156F4B\" }");
 
   connectToWifi();
 

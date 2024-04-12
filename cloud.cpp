@@ -1,11 +1,5 @@
 #include "cloud.h"
 
-const char* URL = "http://85.244.117.107";
-const char* END_POINT_GET = "/test/McMacau";
-const char* END_POINT_POST = "/test";
-
-const char* URL_DATETIME_UTC = "https://worldtimeapi.org/api/timezone/utc";
-
 unsigned long currentDate = 0;
 
 // Temporary method...
@@ -68,7 +62,7 @@ void getRequest(const char* url, fetchFunction fun) {
 * JsonObject& obj      -> json object to be sent
 * fetchFunction fun    -> function to handle the data returned
 */
-void postRequest(const char* url, JsonObject& obj, fetchFunction fun) {
+void postRequest(const char* url, DynamicJsonDocument& obj, fetchFunction fun) {
   if (WiFi.status() != WL_CONNECTED)
     return;
 
@@ -80,7 +74,7 @@ void postRequest(const char* url, JsonObject& obj, fetchFunction fun) {
   String jsonString;
   serializeJson(obj, jsonString);
   int httpResponseCode = http.POST(jsonString);
-  Serial.println(jsonString);
+
   if (httpResponseCode == HTTP_CODE_OK) {
     String response = http.getString();
     int responseLength = http.getSize();

@@ -1,17 +1,9 @@
 #include "system.h"
 
-//LCD stuff
-#define SDA 14  //Define SDA pins
-#define SCL 13  //Define SCL pins
 LiquidCrystal_I2C lcd(0x27, 16, 2);
-unsigned long onDuration;
+unsigned long lcdTime;
 
-//DHT stuff
-#define DHTPIN 19      // Define the pin to which the DHT sensor is connected
-#define DHTTYPE DHT11  // Define the type of DHT sensor (DHT22 or DHT11)
 DHTesp dht;
-
-System sys;
 
 void printLCD(String line1, String line2, int duration = 3) {
   lcd.setCursor(0, 0);
@@ -19,7 +11,7 @@ void printLCD(String line1, String line2, int duration = 3) {
   lcd.setCursor(0, 1);
   lcd.print(line2);
   lcd.backlight();
-  onDuration = millis() + duration * 1000;
+  lcdTime = millis() + duration * 1000;
 }
 
 void startSystem() {
@@ -27,8 +19,17 @@ void startSystem() {
 
   lcd.init();
   dht.setup(DHTPIN, DHTesp::DHT11);
+  pinMode(MOTION, INPUT);
+
+  ledcSetup(SERVO_CHN, SERVO_FRQ, SERVO_BIT);
+  ledcAttachPin(SERVO_1, SERVO_CHN);
+  ledcAttachPin(SERVO_2, SERVO_CHN);
+
+  //TEMPORARY Start System Object
+  deserializeJson(sys, "{\"active\": true,\"nextTime\": 0,\"currentTime\": 0,\"duration\": 10,\"hourToStart\": 8,\"rotation\": [true, false, true, true, false, true, false]}");
 }
 
+//Temporary
 void test(DynamicJsonDocument json) {
   Serial.println("Received!");
 }
@@ -36,27 +37,33 @@ void test(DynamicJsonDocument json) {
 void loopSystem() {
   if (onDuration <= millis()) {
     lcd.noBacklight();
-    onDuration = ULONG_MAX;
+    lcdTime = ULONG_MAX;
   }
 
-  SystemDataNot data = getData();
-  DynamicJsonDocument jsonBuffer(1024);
-  JsonObject root = jsonBuffer.to<JsonObject>();
-  root["temperature"] = data.temperature;
-  root["humidity"] = data.humidity;
-  root["time"] = data.time;
+  if()
 
-  postRequest("http://85.244.117.107/test", root, test);
-  delay(2000);
+  //Check if the system can run
 
 }
 
-SystemStatusNot getStatus() {
-  SystemStatusNot notification = { sys.status, getCurrentDate() };
-  return notification;
+void addData() {
+  JsonArray jsonArray;
+  if (sys.containsKey("data"))
+    jsonArray = sys["data"].as<JsonArray>();
+  else jsonArray = sys.createNestedArray("data");
+
+  JsonObject root = jsonArray.createNestedObject();
+  root["temp"] = dht.getTemperature();
+  root["hum"] = dht.getHumidity();
+  root["t"] = getCurrentDate();
 }
 
-SystemDataNot getData() {
-  SystemDataNot notification = { dht.getTemperature(), dht.getHumidity(), getCurrentDate() };
-  return notification;
+void addStatus() {
+    JsonArray jsonArray;
+  if (sys.containsKey("status"))
+    jsonArray = sys["status"].as<JsonArray>();
+  else jsonArray = sys.createNestedArray("status");
+
+  JsonObject root = jsonArray.createNestedObject();
+  root["stats"] = RUNNING;
 }
