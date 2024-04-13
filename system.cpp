@@ -39,9 +39,29 @@ void loopSystem() {
     lcd.noBacklight();
     lcdTime = ULONG_MAX;
   }
+  
+  sys["currentTime"]=getCurrentDate();
+  if(sys["status"]==RUNNING){
+    if( sys["nextTime"]+ sys["duration"]<sys["currentTime"]){ // nexTime= 15:30, duration  =15 15:45
+      sys["active"]=false;
+      //sys["nextTime"]= getNextTime(); metodo q vai buscar a cloud ou app a proxima hora do system
+      //sys["duration"] =getNewDuration();
+      // n percebo para q serve o hour to start
+    }else if(dht.getHumidity()> 5f && dht.getTemperature()<20f){
+      // notificação q sugere para parar, ou para mm
 
-  if()
+    } //valores atoa
+    
+   
+  }else{
 
+    if(sys["currentTime"]>= sys["nextTime"] ){
+      addStatus();
+      sys["status"][sys["status"].size()-1];
+       
+    }
+  }
+  
   //Check if the system can run
 
 }
@@ -65,5 +85,5 @@ void addStatus() {
   else jsonArray = sys.createNestedArray("status");
 
   JsonObject root = jsonArray.createNestedObject();
-  root["stats"] = RUNNING;
+
 }
