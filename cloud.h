@@ -13,6 +13,7 @@ typedef void (*fetchFunction)(DynamicJsonDocument);
 
 void getRequest(const char* url, fetchFunction fun);
 void postRequest(const char* url, DynamicJsonDocument& obj, fetchFunction fun);
+void putRequest(const char* url, DynamicJsonDocument& obj, fetchFunction fun);
 void fetchCurrentDate();
 unsigned long getCurrentDate();
 

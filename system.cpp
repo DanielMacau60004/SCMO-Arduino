@@ -5,6 +5,11 @@ unsigned long lcdTime;
 
 DHTesp dht;
 
+//System variables
+SystemState currentState = WAITING;
+unsigned long lastDate;
+unsigned long timeRunnig;
+
 void printLCD(String line1, String line2, int duration = 3) {
   lcd.setCursor(0, 0);
   lcd.print(line1);
@@ -26,44 +31,116 @@ void startSystem() {
   ledcAttachPin(SERVO_2, SERVO_CHN);
 
   //TEMPORARY Start System Object
-  deserializeJson(sys, "{\"active\": true,\"nextTime\": 0,\"currentTime\": 0,\"duration\": 10,\"hourToStart\": 8,\"rotation\": [true, false, true, true, false, true, false]}");
+  deserializeJson(sys, "{\"id\": \"arduino\",\"active\": true,\"duration\": 10,\"hourToStart\": 8,\"rotation\": [true, false, true, true, false, true, false]}");
 }
 
-//Temporary
-void test(DynamicJsonDocument json) {
-  Serial.println("Received!");
+void receiveMsg(DynamicJsonDocument json) {
+  sys = json;  //Update data from cloud
+  Serial.println("Message received");
 }
+
+//TODO TEMP
+#define TIME_TO_POST 10
+int a;
+//TODO TEMP
 
 void loopSystem() {
-  if (onDuration <= millis()) {
+  if (lcdTime <= millis()) {
     lcd.noBacklight();
     lcdTime = ULONG_MAX;
   }
-  
-  sys["currentTime"]=getCurrentDate();
-  if(sys["status"]==RUNNING){
-    if( sys["nextTime"]+ sys["duration"]<sys["currentTime"]){ // nexTime= 15:30, duration  =15 15:45
-      sys["active"]=false;
-      //sys["nextTime"]= getNextTime(); metodo q vai buscar a cloud ou app a proxima hora do system
-      //sys["duration"] =getNewDuration();
-      // n percebo para q serve o hour to start
-    }else if(dht.getHumidity()> 5f && dht.getTemperature()<20f){
-      // notificação q sugere para parar, ou para mm
 
-    } //valores atoa
-    
-   
-  }else{
-
-    if(sys["currentTime"]>= sys["nextTime"] ){
-      addStatus();
-      sys["status"][sys["status"].size()-1];
-       
-    }
+  //If the system was stopped
+  if (!sys["active"].as<bool>) {
+    break;
   }
-  
-  //Check if the system can run
 
+  switch (currentState) {
+
+    case RUNNING:
+
+      //Stop state
+      if (timeRunnig >= sys["duration"].as<unsigned long>() * 60) {
+        currentState = WAITING;
+        addStatus();
+        break;
+      }
+
+      unsigned long currentDate = getCurrentDate();
+      timeRunnig = currentDate - lastDate;
+      lastDate = currentDate;
+
+      //Run things...
+
+      //Check if the movement sensor fired
+      if(digitalRead(MOTION)) {
+        currentState = PAUSED;
+        addStatus();
+        break;
+      }
+
+      //Move sensors
+      ledcWrite(SERVO_CHN, 1)
+
+      //Fetch data constantly from the cloud
+      //TODO complete this
+
+      break;
+
+    case WAITING:
+      unsigned long currentDate = getCurrentDate();
+      unsigned long getcurrenthour = ....;  //TODO complete this
+      unsigned long hourToStart = sys["hourToStart"].as<unsigned long>();
+      unsigned long dayOfTheWeek = ....;  //TODO complete this
+
+      bool needsToAct = sys["hourToStart"].as<JsonArray>()[dayOfTheWeek].as<bool>;
+
+      //Day off :D
+      if (!needsToAct) break;
+
+      // Starting state
+      if (getcurrenthour == hourToStart) {  //Check if shoud act!
+        currentState = RUNNING;
+        lastDate = currentDate;
+        timeRunnig = 0;
+        addStatus();
+        break;
+      }
+
+      break;
+
+    case PAUSED:
+  
+      //Do nothing
+      if(reaches a certain time) {//TODO complete this
+        currentState = RUNNING;
+        lastDate = getCurrentDate();
+        addStatus();
+      }
+
+      break;
+
+      //TODO do this on fixed time intervals
+      //Fetch data from the cloud
+      //Store everything persistently
+      addData();
+  }
+
+
+
+  //*******************************************************************
+  //Working, don't delete this!
+  /*if (a >= TIME_TO_POST) {
+    addData();
+    addStatus();
+    putRequest("https://scmu.azurewebsites.net/rest/boards/{id}/arduino", sys, receiveMsg);
+    a = 0;
+    printLCD("Data sent!","",2);
+  }
+  a++;*/
+  //*******************************************************************
+
+  delay(1000);
 }
 
 void addData() {
@@ -79,11 +156,12 @@ void addData() {
 }
 
 void addStatus() {
-    JsonArray jsonArray;
+  JsonArray jsonArray;
   if (sys.containsKey("status"))
     jsonArray = sys["status"].as<JsonArray>();
   else jsonArray = sys.createNestedArray("status");
 
   JsonObject root = jsonArray.createNestedObject();
-
+  root["status"] = currentState;
+  root["t"] = getCurrentDate();
 }

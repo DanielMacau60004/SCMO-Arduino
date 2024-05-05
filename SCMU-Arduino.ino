@@ -1,6 +1,7 @@
 #include "cloud.h"
 #include "internet.h"
 #include "system.h"
+#include "structures.h"
 
 void setup() {
   Serial.begin(115200);
@@ -11,7 +12,7 @@ void setup() {
   //Wifi config setup
   //WifiConfig defaultWifiConfig = { "MEO-6B144F", "CA22156F4B" };
   //WifiConfig defaultWifiConfig = { "Rede do Lol", "miguel123" };
-  //storeWifiConfig("{ \"ssid\": \"MEO-6B144F\", \"pwd\": \"CA22156F4B\" }");
+  storeWifiConfig("{ \"ssid\": \"Rede do Lol\", \"pwd\": \"miguel123\" }");
 
   connectToWifi();
 
