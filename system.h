@@ -32,6 +32,10 @@
 #define SERVO_BIT 12
 //use servos ledcWrite(SERVO_CHN, 1);
 
+//Global stuff
+#define SYSTEM_FILE "/system.json"
+#define TIME_PAUSING 5 //in seconds
+
 void startSystem();
 void loopSystem();
 void addData();

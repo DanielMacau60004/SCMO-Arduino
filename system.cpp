@@ -9,6 +9,8 @@ DHTesp dht;
 SystemState currentState = WAITING;
 unsigned long lastDate;
 unsigned long timeRunnig;
+unsigned long timePausing;
+
 
 void printLCD(String line1, String line2, int duration = 3) {
   lcd.setCursor(0, 0);
@@ -30,7 +32,7 @@ void startSystem() {
   ledcAttachPin(SERVO_1, SERVO_CHN);
   ledcAttachPin(SERVO_2, SERVO_CHN);
 
-  //TEMPORARY Start System Object
+  //TODO Fetch data from cloud, and from file
   deserializeJson(sys, "{\"id\": \"arduino\",\"active\": true,\"duration\": 10,\"hourToStart\": 8,\"rotation\": [true, false, true, true, false, true, false]}");
 }
 
@@ -75,6 +77,7 @@ void loopSystem() {
       //Check if the movement sensor fired
       if(digitalRead(MOTION)) {
         currentState = PAUSED;
+        timePausing = 0;
         addStatus();
         break;
       }
@@ -83,7 +86,7 @@ void loopSystem() {
       ledcWrite(SERVO_CHN, 1)
 
       //Fetch data constantly from the cloud
-      //TODO complete this
+      pupdateCloud();
 
       break;
 
@@ -110,19 +113,21 @@ void loopSystem() {
       break;
 
     case PAUSED:
-  
+      unsigned long currentDate = getCurrentDate();
+      timePausing = currentDate - lastDate;
+
       //Do nothing
-      if(reaches a certain time) {//TODO complete this
+      if(timePausing >= TIME_PAUSING) {
         currentState = RUNNING;
-        lastDate = getCurrentDate();
+        lastDate = currentDate;
         addStatus();
       }
 
       break;
 
       //TODO do this on fixed time intervals
-      //Fetch data from the cloud
-      //Store everything persistently
+      writeFile(SYSTEM_FILE);
+      updateCloud();
       addData();
   }
 
@@ -141,6 +146,10 @@ void loopSystem() {
   //*******************************************************************
 
   delay(1000);
+}
+
+void updateCloud() {
+  putRequest("https://scmu.azurewebsites.net/rest/boards/"+sys["id"].as<String>+"/arduino", sys, receiveMsg);
 }
 
 void addData() {
