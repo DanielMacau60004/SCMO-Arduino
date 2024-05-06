@@ -8,9 +8,9 @@ void initFileSystem(bool format = false);
 void formatDisk();
 
 void writeFile(const char* file, JsonDocument& json);
-void appendFile(const char* file, JsonDocument& json);
+//void appendFile(const char* file, JsonDocument& json);
 void readFile(const char* file, JsonDocument& json);
-void readAppendFile(const char* file, JsonArray& jsonArray);
+//void readAppendFile(const char* file, JsonArray& jsonArray);
 
 bool existFile(const char* file);
 void deleteFile(const char* file);

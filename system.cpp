@@ -11,6 +11,8 @@ unsigned long lastDate;
 unsigned long timeRunnig;
 unsigned long timePausing;
 
+unsigned long lastFetch;
+
 
 void printLCD(String line1, String line2, int duration = 3) {
   lcd.setCursor(0, 0);
@@ -19,6 +21,24 @@ void printLCD(String line1, String line2, int duration = 3) {
   lcd.print(line2);
   lcd.backlight();
   lcdTime = millis() + duration * 1000;
+}
+
+void cloudMessage(DynamicJsonDocument json) {
+  sys = json;  //Update data from cloud
+  Serial.println("Message received");
+}
+
+void fileMessage(DynamicJsonDocument json) {
+  if (json == NULL || json.size() == 0)
+    return;
+
+  //Copy fields
+  if (json.containsKey("data"))
+    sys["data"] = json["data"];
+  if (json.containsKey("status"))
+    sys["status"] = json["status"];
+
+  Serial.println("File received");
 }
 
 void startSystem() {
@@ -32,125 +52,112 @@ void startSystem() {
   ledcAttachPin(SERVO_1, SERVO_CHN);
   ledcAttachPin(SERVO_2, SERVO_CHN);
 
-  //TODO Fetch data from cloud, and from file
-  deserializeJson(sys, "{\"id\": \"arduino\",\"active\": true,\"duration\": 10,\"hourToStart\": 8,\"rotation\": [true, false, true, true, false, true, false]}");
+  //Fetch data from the cloud and file
+  while (sys == NULL || sys.size() == 0) {
+    getRequest(BASE_URL SYSTEM_ID, cloudMessage);
+
+    DynamicJsonDocument doc(1024);
+    readFile(SYSTEM_FILE, doc);
+    fileMessage(doc);
+
+    sleep(100);
+  }
+
+  Serial.println("Data fetched!");
+  //deserializeJson(sys, "{\"id\": \"arduino\",\"active\": true,\"duration\": 10,\"hourToStart\": 8,\"rotation\": [true, false, true, true, false, true, false]}");
 }
 
-void receiveMsg(DynamicJsonDocument json) {
-  sys = json;  //Update data from cloud
-  Serial.println("Message received");
+void running(unsigned long currentDate) {
+  //Stop state
+  if (timeRunnig >= sys["duration"].as<unsigned long>() * 60) {
+    currentState = WAITING;
+    addStatus();
+    return;
+  }
+  timeRunnig = currentDate - lastDate;
+  lastDate = currentDate;
+
+  //Run things...
+
+  //Check if the movement sensor fired
+  if (digitalRead(MOTION)) {
+    currentState = PAUSED;
+    timePausing = 0;
+    addStatus();
+    return;
+  }
+
+  //Move sensors
+  ledcWrite(SERVO_CHN, 1);
+
+  //Fetch data from the cloud constantly
+  putRequest(BASE_URL SYSTEM_ID PUT_ENDPOINT, sys, cloudMessage);
+
 }
 
-//TODO TEMP
-#define TIME_TO_POST 10
-int a;
-//TODO TEMP
+void waiting(unsigned long currentDate) {
+  time_t timeInSeconds = currentDate;
+  struct tm *local_time = localtime(&timeInSeconds);
+  unsigned long hourToStart = sys["hourToStart"].as<unsigned long>();
+
+  bool needsToAct = sys["hourToStart"].as<JsonArray>()[local_time->tm_wday];
+
+  //Day off :D
+  if (!needsToAct) return;
+
+  // Starting state
+  // TODO Check if shoud act!
+  if (local_time->tm_hour == hourToStart) {
+    currentState = RUNNING;
+    lastDate = currentDate;
+    timeRunnig = 0;
+    addStatus();
+    return;
+  }
+
+}
+
+void paused(unsigned long currentDate) {
+  timePausing = currentDate - lastDate;
+
+  //Do nothing
+  if (timePausing >= TIME_PAUSING) {
+    currentState = RUNNING;
+    lastDate = currentDate;
+    addStatus();
+    return;
+  }
+
+}
 
 void loopSystem() {
+
   if (lcdTime <= millis()) {
     lcd.noBacklight();
     lcdTime = ULONG_MAX;
   }
 
   //If the system was stopped
-  if (!sys["active"].as<bool>) {
-    break;
-  }
+  bool isActive = sys["active"];
+  if (!isActive)
+    return;
 
-  switch (currentState) {
+  unsigned long currentDate = getCurrentDate();
 
-    case RUNNING:
+  if (currentState == RUNNING) running(currentDate);
+  else if (currentState == WAITING) running(currentDate);
+  else if (currentState == PAUSED) paused(currentDate);
 
-      //Stop state
-      if (timeRunnig >= sys["duration"].as<unsigned long>() * 60) {
-        currentState = WAITING;
-        addStatus();
-        break;
-      }
-
-      unsigned long currentDate = getCurrentDate();
-      timeRunnig = currentDate - lastDate;
-      lastDate = currentDate;
-
-      //Run things...
-
-      //Check if the movement sensor fired
-      if(digitalRead(MOTION)) {
-        currentState = PAUSED;
-        timePausing = 0;
-        addStatus();
-        break;
-      }
-
-      //Move sensors
-      ledcWrite(SERVO_CHN, 1)
-
-      //Fetch data constantly from the cloud
-      pupdateCloud();
-
-      break;
-
-    case WAITING:
-      unsigned long currentDate = getCurrentDate();
-      unsigned long getcurrenthour = ....;  //TODO complete this
-      unsigned long hourToStart = sys["hourToStart"].as<unsigned long>();
-      unsigned long dayOfTheWeek = ....;  //TODO complete this
-
-      bool needsToAct = sys["hourToStart"].as<JsonArray>()[dayOfTheWeek].as<bool>;
-
-      //Day off :D
-      if (!needsToAct) break;
-
-      // Starting state
-      if (getcurrenthour == hourToStart) {  //Check if shoud act!
-        currentState = RUNNING;
-        lastDate = currentDate;
-        timeRunnig = 0;
-        addStatus();
-        break;
-      }
-
-      break;
-
-    case PAUSED:
-      unsigned long currentDate = getCurrentDate();
-      timePausing = currentDate - lastDate;
-
-      //Do nothing
-      if(timePausing >= TIME_PAUSING) {
-        currentState = RUNNING;
-        lastDate = currentDate;
-        addStatus();
-      }
-
-      break;
-
-      //TODO do this on fixed time intervals
-      writeFile(SYSTEM_FILE);
-      updateCloud();
-      addData();
-  }
-
-
-
-  //*******************************************************************
-  //Working, don't delete this!
-  /*if (a >= TIME_TO_POST) {
+  //Do this periodically
+  if (currentDate - lastFetch > TIME_FETCHING) {
+    writeFile(SYSTEM_FILE, sys);
+    putRequest(BASE_URL SYSTEM_ID PUT_ENDPOINT, sys, cloudMessage);
     addData();
-    addStatus();
-    putRequest("https://scmu.azurewebsites.net/rest/boards/{id}/arduino", sys, receiveMsg);
-    a = 0;
-    printLCD("Data sent!","",2);
+    lastFetch = currentDate;
   }
-  a++;*/
-  //*******************************************************************
 
-  delay(1000);
 }
 
-void updateCloud() {
-  putRequest("https://scmu.azurewebsites.net/rest/boards/"+sys["id"].as<String>+"/arduino", sys, receiveMsg);
-}
 
 void addData() {
   JsonArray jsonArray;

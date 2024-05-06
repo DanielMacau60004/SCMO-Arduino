@@ -41,9 +41,9 @@ void writeFile(const char* file, JsonDocument& json) {
   writeFile(file, json, "w");
 }
 
-void appendFile(const char* file, JsonDocument& json) {
+/*void appendFile(const char* file, JsonDocument& json) {
   writeFile(file, json, "a");
-}
+}*/
 
 void readFile(const char* file, JsonDocument& json) {
   dataFile = SPIFFS.open(file, "r");
@@ -61,6 +61,7 @@ void readFile(const char* file, JsonDocument& json) {
   dataFile.close();
 }
 
+/*
 void readAppendFile(const char* file, JsonArray& jsonArray) {
   File dataFile = SPIFFS.open(file, "r");
   if (!dataFile) {
@@ -83,7 +84,7 @@ void readAppendFile(const char* file, JsonArray& jsonArray) {
   }
 
   dataFile.close();
-}
+}*/
 
 
 bool existFile(const char* file) {
