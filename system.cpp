@@ -8,7 +8,7 @@ DHTesp dht;
 //System variables
 SystemState currentState = WAITING;
 unsigned long lastDate;
-unsigned long timeRunnig;
+unsigned long timeRunning;
 unsigned long timePausing;
 
 unsigned long lastFetch;
@@ -53,6 +53,7 @@ void startSystem() {
   ledcAttachPin(SERVO_2, SERVO_CHN);
 
   //Fetch data from the cloud and file
+  Serial.println("Starting System!");
   while (sys == NULL || sys.size() == 0) {
     getRequest(BASE_URL SYSTEM_ID, cloudMessage);
 
@@ -60,74 +61,91 @@ void startSystem() {
     readFile(SYSTEM_FILE, doc);
     fileMessage(doc);
 
-    sleep(100);
+    delay(500);
+    Serial.print(".");
   }
 
-  Serial.println("Data fetched!");
+  Serial.println("\nSystem Started!");
   //deserializeJson(sys, "{\"id\": \"arduino\",\"active\": true,\"duration\": 10,\"hourToStart\": 8,\"rotation\": [true, false, true, true, false, true, false]}");
 }
 
 void running(unsigned long currentDate) {
   //Stop state
-  if (timeRunnig >= sys["duration"].as<unsigned long>() * 60) {
+  if (timeRunning >= sys["duration"].as<unsigned long>() * 60) {
     currentState = WAITING;
     addStatus();
+    ledcWrite(SERVO_CHN, 0);
     return;
   }
-  timeRunnig = currentDate - lastDate;
+  timeRunning += currentDate - lastDate;
   lastDate = currentDate;
+
+  unsigned long hours = timeRunning / 3600;
+  unsigned long minutes = (timeRunning % 3600) / 60;
+  printLCD("Running!", String(hours) + ":" + String(minutes) + "           ", 2);
 
   //Run things...
 
   //Check if the movement sensor fired
   if (digitalRead(MOTION)) {
+    ledcWrite(SERVO_CHN, 0);
     currentState = PAUSED;
     timePausing = 0;
     addStatus();
     return;
   }
 
-  //Move sensors
-  ledcWrite(SERVO_CHN, 1);
-
   //Fetch data from the cloud constantly
-  putRequest(BASE_URL SYSTEM_ID PUT_ENDPOINT, sys, cloudMessage);
-
+  //putRequest(BASE_URL SYSTEM_ID PUT_ENDPOINT, sys, cloudMessage);
 }
 
 void waiting(unsigned long currentDate) {
   time_t timeInSeconds = currentDate;
   struct tm *local_time = localtime(&timeInSeconds);
   unsigned long hourToStart = sys["hourToStart"].as<unsigned long>();
+  unsigned long hour = hourToStart % 60;
+  unsigned long minutes = hourToStart / 60;
 
-  bool needsToAct = sys["hourToStart"].as<JsonArray>()[local_time->tm_wday];
+  bool needsToAct = sys["rotation"].as<JsonArray>()[local_time->tm_wday];
 
-  //Day off :D
-  if (!needsToAct) return;
+  char buffer[80];
+  strftime(buffer, sizeof(buffer), "Waiting! %a", local_time);
 
-  // Starting state
-  // TODO Check if shoud act!
-  if (local_time->tm_hour == hourToStart) {
-    currentState = RUNNING;
-    lastDate = currentDate;
-    timeRunnig = 0;
-    addStatus();
+  printLCD(buffer, String(local_time->tm_hour) + ":" + String(local_time->tm_min) + " " + String(hour) + ":" + String(minutes) + " " + (needsToAct ? "true" : "false") + "      ", 2);
+
+  if (!needsToAct) {
     return;
   }
 
+  // Starting state
+  // TODO Check if shoud act!
+  if (local_time->tm_hour == hour) {  //&& local_time->tm_min == minutes
+    ledcWrite(SERVO_CHN, 1);
+    currentState = RUNNING;
+    lastDate = currentDate;
+    timeRunning = 0;
+    addStatus();
+    return;
+  }
 }
 
 void paused(unsigned long currentDate) {
+  printLCD("Paused!", "", 2);
   timePausing = currentDate - lastDate;
+
+  if (digitalRead(MOTION)) {
+    timePausing = 0;
+    return;
+  }
 
   //Do nothing
   if (timePausing >= TIME_PAUSING) {
     currentState = RUNNING;
     lastDate = currentDate;
+    ledcWrite(SERVO_CHN, 1);
     addStatus();
     return;
   }
-
 }
 
 void loopSystem() {
@@ -142,20 +160,19 @@ void loopSystem() {
   if (!isActive)
     return;
 
-  unsigned long currentDate = getCurrentDate();
+  unsigned long currentDate = getCurrentDate() + millis() / 1000 * 1800;  //TO SPEED UP
 
   if (currentState == RUNNING) running(currentDate);
-  else if (currentState == WAITING) running(currentDate);
+  else if (currentState == WAITING) waiting(currentDate);
   else if (currentState == PAUSED) paused(currentDate);
 
   //Do this periodically
   if (currentDate - lastFetch > TIME_FETCHING) {
     writeFile(SYSTEM_FILE, sys);
-    putRequest(BASE_URL SYSTEM_ID PUT_ENDPOINT, sys, cloudMessage);
+    //putRequest(BASE_URL SYSTEM_ID PUT_ENDPOINT, sys, cloudMessage);
     addData();
     lastFetch = currentDate;
   }
-
 }
 
 
