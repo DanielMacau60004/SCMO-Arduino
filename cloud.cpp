@@ -106,7 +106,7 @@ void putRequest(const char* url, DynamicJsonDocument& obj, fetchFunction fun) {
   serializeJson(obj, jsonString);
 
   int httpResponseCode = http.PUT(jsonString);
-  Serial.println(httpResponseCode);
+  //Serial.println(httpResponseCode);
   if (httpResponseCode == HTTP_CODE_OK) {
     String response = http.getString();
     int responseLength = http.getSize();
