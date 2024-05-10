@@ -54,7 +54,7 @@ void running(unsigned long currentDate, unsigned int state) {
   //Stop state
   if (state == WAITING || timeRunning >= sys["duration"].as<unsigned long>() * 60) {
     currentState = WAITING;
-    addStatus();
+    addStatus(currentDate);
     ledcWrite(SERVO_CHN, 0);
     return;
   }
@@ -74,7 +74,7 @@ void running(unsigned long currentDate, unsigned int state) {
     ledcWrite(SERVO_CHN, 0);
     currentState = PAUSED;
     timePaused = 0;
-    addStatus();
+    addStatus(currentDate);
     return;
   }
 }
@@ -101,7 +101,7 @@ void waiting(unsigned long currentDate, unsigned int state) {
     currentState = RUNNING;
     lastDate = currentDate;
     timeRunning = 0;
-    addStatus();
+    addStatus(currentDate);
     return;
   }
 }
@@ -117,7 +117,7 @@ void paused(unsigned long currentDate, unsigned int state) {
 
   if(state == WAITING) {
     currentState = WAITING;
-    addStatus();
+    addStatus(currentDate);
     ledcWrite(SERVO_CHN, 0);
     return;
   }
@@ -130,7 +130,7 @@ void paused(unsigned long currentDate, unsigned int state) {
   if (timePaused >= TIME_PAUSING) {
     currentState = RUNNING;
     lastDate = currentDate;
-    addStatus();
+    addStatus(currentDate);
     return;
   }
 }
@@ -148,7 +148,7 @@ void loopSystem() {
   if (currentDate - lastFetch > TIME_FETCHING) {
     putRequest(BASE_URL SYSTEM_ID PUT_ENDPOINT, sys, cloudMessage);
     state = sys["state"].as<unsigned int>();
-    addData();
+    addData(currentDate);
     lastFetch = currentDate;
   }
 
@@ -166,7 +166,7 @@ void loopSystem() {
   sys["state"] = -1;
 }
 
-void addData() {
+void addData(unsigned long currentDate) {
   JsonArray jsonArray;
   if (sys.containsKey("data"))
     jsonArray = sys["data"].as<JsonArray>();
@@ -175,10 +175,10 @@ void addData() {
   JsonObject root = jsonArray.createNestedObject();
   root["temp"] = dht.getTemperature();
   root["hum"] = dht.getHumidity();
-  root["t"] = getCurrentDate();
+  root["t"] = currentDate;
 }
 
-void addStatus() {
+void addStatus(unsigned long currentDate) {
   JsonArray jsonArray;
   if (sys.containsKey("status"))
     jsonArray = sys["status"].as<JsonArray>();
@@ -186,5 +186,5 @@ void addStatus() {
 
   JsonObject root = jsonArray.createNestedObject();
   root["status"] = currentState;
-  root["t"] = getCurrentDate();
+  root["t"] = currentDate;
 }

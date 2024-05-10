@@ -45,7 +45,7 @@
 
 void startSystem();
 void loopSystem();
-void addData();
-void addStatus();
+void addData(unsigned long currentDate);
+void addStatus(unsigned long currentDate);
 
 #endif
