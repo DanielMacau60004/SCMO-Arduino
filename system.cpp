@@ -6,24 +6,25 @@ unsigned long lcdTime;
 DHTesp dht;
 
 //System variables
-SystemState currentState = WAITING;
+SystemState currentState;
 unsigned long lastDate;
 unsigned long timeRunning;
-unsigned long timePausing;
+unsigned long timePaused;
 
 unsigned long lastFetch;
 
 void printLCD(String line1, String line2, int duration = 3) {
   lcd.setCursor(0, 0);
-  lcd.print(line1);
+  lcd.print(line1 + "           ");
   lcd.setCursor(0, 1);
-  lcd.print(line2);
+  lcd.print(line2 + "           ");
   lcd.backlight();
   lcdTime = millis() + duration * 1000;
 }
 
 void cloudMessage(DynamicJsonDocument json) {
   sys = json;
+  //Serial.println("Data sent/received!");
 }
 
 void startSystem() {
@@ -41,17 +42,17 @@ void startSystem() {
   Serial.println("Starting System!");
   while (sys == NULL || sys.size() == 0) {
     getRequest(BASE_URL SYSTEM_ID, cloudMessage);
-
-    delay(500);
+    delay(100);
     Serial.print(".");
   }
 
+  currentState = WAITING;
   Serial.println("\nSystem Started!");
 }
 
-void running(unsigned long currentDate) {
+void running(unsigned long currentDate, unsigned int state) {
   //Stop state
-  if (timeRunning >= sys["duration"].as<unsigned long>() * 60) {
+  if (state == WAITING || timeRunning >= sys["duration"].as<unsigned long>() * 60) {
     currentState = WAITING;
     addStatus();
     ledcWrite(SERVO_CHN, 0);
@@ -63,22 +64,22 @@ void running(unsigned long currentDate) {
 
   unsigned long hours = timeRunning / 3600;
   unsigned long minutes = (timeRunning % 3600) / 60;
-  printLCD("Running!", String(hours) + ":" + String(minutes) + "           ", 2);
+  printLCD("Running!", String(hours) + ":" + String(minutes), 2);
 
   //Run things...
   ledcWrite(SERVO_CHN, 1);
 
   //Check if the movement sensor fired
-  if (digitalRead(MOTION)) {
+  if (state == PAUSED || digitalRead(MOTION)) {
     ledcWrite(SERVO_CHN, 0);
     currentState = PAUSED;
-    timePausing = 0;
+    timePaused = 0;
     addStatus();
     return;
   }
 }
 
-void waiting(unsigned long currentDate) {
+void waiting(unsigned long currentDate, unsigned int state) {
   time_t timeInSeconds = currentDate;
   struct tm *local_time = localtime(&timeInSeconds);
   unsigned long hourToStart = sys["hourToStart"].as<unsigned long>();
@@ -89,7 +90,7 @@ void waiting(unsigned long currentDate) {
   char buffer[80];
 
   strftime(buffer, sizeof(buffer), "Waiting! %a", local_time);
-  printLCD(buffer, String(local_time->tm_hour) + ":" + String(local_time->tm_min) + " " + String(hour) + ":" + String(minutes) + "      ", 2);
+  printLCD(buffer, String(local_time->tm_hour) + ":" + String(local_time->tm_min), 2);
 
   if (!needsToAct)
     return;
@@ -105,20 +106,28 @@ void waiting(unsigned long currentDate) {
   }
 }
 
-void paused(unsigned long currentDate) {
+void paused(unsigned long currentDate, unsigned int state) {
 
-  timePausing += currentDate - lastDate;
+  timePaused += currentDate - lastDate;
   lastDate = currentDate;
 
-  unsigned long hours = timePausing / 3600;
-  unsigned long minutes = (timePausing % 3600) / 60;
-  printLCD("Paused!", String(hours) + ":" + String(minutes) + "           ", 2);
+  unsigned long hours = timePaused / 3600;
+  unsigned long minutes = (timePaused % 3600) / 60;
+  printLCD("Paused!", String(hours) + ":" + String(minutes), 2);
 
+  if(state == WAITING) {
+    currentState = WAITING;
+    addStatus();
+    ledcWrite(SERVO_CHN, 0);
+    return;
+  }
+
+  //Keep paused
   if (digitalRead(MOTION))
     return;
 
-  //Do nothing
-  if (timePausing >= TIME_PAUSING * SPEED) {
+  //Back to running mode
+  if (timePaused >= TIME_PAUSING) {
     currentState = RUNNING;
     lastDate = currentDate;
     addStatus();
@@ -133,10 +142,12 @@ void loopSystem() {
   }
 
   unsigned long currentDate = getCurrentDate() + millis() / 1000 * SPEED;  //TO SPEED UP
+  unsigned int state = sys["state"].as<unsigned int>();
 
   //Do this periodically
   if (currentDate - lastFetch > TIME_FETCHING) {
     putRequest(BASE_URL SYSTEM_ID PUT_ENDPOINT, sys, cloudMessage);
+    state = sys["state"].as<unsigned int>();
     addData();
     lastFetch = currentDate;
   }
@@ -146,13 +157,14 @@ void loopSystem() {
     return;
 
   if (currentState == RUNNING)
-    running(currentDate);
+    running(currentDate, state);
   else if (currentState == WAITING)
-    waiting(currentDate);
+    waiting(currentDate, state);
   else if (currentState == PAUSED)
-    paused(currentDate);
-}
+    paused(currentDate, state);
 
+  sys["state"] = -1;
+}
 
 void addData() {
   JsonArray jsonArray;

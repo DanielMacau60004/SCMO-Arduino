@@ -17,9 +17,9 @@
 #define BASE_URL "https://scmu.azurewebsites.net/rest/boards/"
 #define PUT_ENDPOINT "/arduino"
 #define SYSTEM_FILE "/system.json"
-#define TIME_PAUSING 5//in seconds
-#define TIME_FETCHING 3 //in seconds
 #define SPEED 60 * 30
+#define TIME_PAUSING 5 * SPEED //in seconds
+#define TIME_FETCHING 3 * SPEED //in seconds
 
 //LCD stuff
 #define SDA 14
