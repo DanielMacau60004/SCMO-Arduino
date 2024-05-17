@@ -1,25 +1,7 @@
+#include "HardwareSerial.h"
 #include "cloud.h"
 
 unsigned long currentDate = 0;
-
-// Temporary method...
-/*void initCloud() {
-
-  //Get request
-  Serial.println("\nPerform GET");
-  getRequest(END_POINT_GET, handleGet);
-
-  //Post request
-  Serial.println("Perform POST");
-  DynamicJsonDocument jsonBuffer(1024);
-  JsonObject root = jsonBuffer.to<JsonObject>();
-  root["uuid"] = "1212";
-  root["username"] = "daniel";
-  root["password"] = "pwd32132";
-  root["ip"] = "23.212.213.21";
-  postRequest(END_POINT_POST, root, handleGet);
-  
-}*/
 
 /*
 * Create a get request to the cloud
@@ -36,6 +18,7 @@ void getRequest(const char* url, fetchFunction fun) {
   http.begin(requestURL);
 
   int httpResponseCode = http.GET();
+  Serial.println(httpResponseCode);
   if (httpResponseCode == HTTP_CODE_OK) {
     String response = http.getString();
     int responseLength = http.getSize();
@@ -106,7 +89,7 @@ void putRequest(const char* url, DynamicJsonDocument& obj, fetchFunction fun) {
   serializeJson(obj, jsonString);
 
   int httpResponseCode = http.PUT(jsonString);
-  //Serial.println(httpResponseCode);
+  Serial.println(httpResponseCode);
   if (httpResponseCode == HTTP_CODE_OK) {
     String response = http.getString();
     int responseLength = http.getSize();
@@ -125,7 +108,6 @@ void putRequest(const char* url, DynamicJsonDocument& obj, fetchFunction fun) {
 
   http.end();
 }
-
 
 void updateCurrentDate(DynamicJsonDocument json) {
   unsigned long date = json["unixtime"].as<unsigned long>();

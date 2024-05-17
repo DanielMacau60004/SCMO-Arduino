@@ -1,3 +1,4 @@
+#include "esp32-hal.h"
 #include "system.h"
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -13,6 +14,11 @@ unsigned long timePaused;
 
 unsigned long lastFetch;
 
+unsigned long newDate;
+unsigned long newMilli;
+
+unsigned int lastAction;
+
 void printLCD(String line1, String line2, int duration = 3) {
   lcd.setCursor(0, 0);
   lcd.print(line1 + "           ");
@@ -26,6 +32,8 @@ void cloudMessage(DynamicJsonDocument json) {
   sys = json;
   //Serial.println("Data sent/received!");
 }
+
+void cloudEmpty(DynamicJsonDocument json) {}
 
 void startSystem() {
   Wire.begin(SDA, SCL);
@@ -45,26 +53,38 @@ void startSystem() {
     delay(100);
     Serial.print(".");
   }
-
+ 
+  Serial.println("\nDeleting old data!");
+  getRequest(BASE_URL SYSTEM_ID RESET_ENDPOINT, cloudEmpty);
   currentState = WAITING;
   Serial.println("\nSystem Started!");
+
+  newDate = getCurrentDate();
+  newMilli = millis();
 }
 
-void running(unsigned long currentDate, unsigned int state) {
-  //Stop state
-  if (state == WAITING || timeRunning >= sys["duration"].as<unsigned long>() * 60) {
+void running(unsigned int state) {
+  //Remote stop
+  if(state == WAITING) {
     currentState = WAITING;
-    addStatus(currentDate);
+    addStatus(CANCELED_USER);
     ledcWrite(SERVO_CHN, 0);
     return;
   }
 
-  timeRunning += currentDate - lastDate;
-  lastDate = currentDate;
+  //Normal Stop
+  if (state == WAITING || timeRunning >= sys["duration"].as<unsigned long>() * 60) {
+    currentState = WAITING;
+    addStatus(currentState);
+    ledcWrite(SERVO_CHN, 0);
+    return;
+  }
 
-  unsigned long hours = timeRunning / 3600;
+  timeRunning += newDate - lastDate;
+  lastDate = newDate;
+
   unsigned long minutes = (timeRunning % 3600) / 60;
-  printLCD("Running!", String(hours) + ":" + String(minutes), 2);
+  printLCD("Running!", String(minutes) + " mins", 2);
 
   //Run things...
   ledcWrite(SERVO_CHN, 1);
@@ -74,13 +94,13 @@ void running(unsigned long currentDate, unsigned int state) {
     ledcWrite(SERVO_CHN, 0);
     currentState = PAUSED;
     timePaused = 0;
-    addStatus(currentDate);
+    addStatus(currentState);
     return;
   }
 }
 
-void waiting(unsigned long currentDate, unsigned int state) {
-  time_t timeInSeconds = currentDate;
+void waiting(unsigned int state) {
+  time_t timeInSeconds = newDate;
   struct tm *local_time = localtime(&timeInSeconds);
   unsigned long hourToStart = sys["hourToStart"].as<unsigned long>();
   unsigned long hour = hourToStart % 60;
@@ -90,34 +110,39 @@ void waiting(unsigned long currentDate, unsigned int state) {
   char buffer[80];
 
   strftime(buffer, sizeof(buffer), "Waiting! %a", local_time);
-  printLCD(buffer, String(local_time->tm_hour) + ":" + String(local_time->tm_min), 2);
+  printLCD(buffer, String(local_time->tm_hour) + ":" + String(local_time->tm_min)+ " T:" + String((int)dht.getTemperature()) + " H:" + String((int)dht.getHumidity()) + "%", 2);
 
   if (!needsToAct)
     return;
 
   // Starting state
-  // TODO Check if shoud act!
-  if (local_time->tm_hour == hour) {  //&& local_time->tm_min == minutes
+  if (local_time->tm_hour == hour && local_time->tm_yday > lastAction) {
+    if (dht.getHumidity() > HUMIDITY_THRESHOLD || dht.getTemperature() < TEMPERATURE_THRESHOLD) {  //Check weather conditions
+      addStatus(CANCELED_SYSTEM);
+      return;
+    }
     currentState = RUNNING;
-    lastDate = currentDate;
+
+    lastAction = local_time->tm_yday;
+    newDate = (newDate / (24 *60 *60)) * (24 *60 *60) + hourToStart * 60;
+    lastDate = newDate;
     timeRunning = 0;
-    addStatus(currentDate);
+    addStatus(currentState);
     return;
   }
 }
 
-void paused(unsigned long currentDate, unsigned int state) {
+void paused(unsigned int state) {
 
-  timePaused += currentDate - lastDate;
-  lastDate = currentDate;
+  timePaused += newDate - lastDate;
+  lastDate = newDate;
 
-  unsigned long hours = timePaused / 3600;
   unsigned long minutes = (timePaused % 3600) / 60;
-  printLCD("Paused!", String(hours) + ":" + String(minutes), 2);
+  printLCD("Paused!", String(minutes) + " mins", 2);
 
-  if(state == WAITING) {
+  if (state == WAITING) {
     currentState = WAITING;
-    addStatus(currentDate);
+    addStatus(currentState);
     ledcWrite(SERVO_CHN, 0);
     return;
   }
@@ -127,10 +152,10 @@ void paused(unsigned long currentDate, unsigned int state) {
     return;
 
   //Back to running mode
-  if (timePaused >= TIME_PAUSING) {
+  if (timePaused >= TIME_PAUSING) { //TODO change TIME_PAUSING
     currentState = RUNNING;
-    lastDate = currentDate;
-    addStatus(currentDate);
+    lastDate = newDate;
+    addStatus(currentState);
     return;
   }
 }
@@ -141,15 +166,26 @@ void loopSystem() {
     lcdTime = ULONG_MAX;
   }
 
-  unsigned long currentDate = getCurrentDate() + millis() / 1000 * SPEED;  //TO SPEED UP
+  unsigned long diff = millis() - newMilli;
+  newMilli = millis();
+
+  int speedUp = SPEED_UP_ACTING;
+  if(currentState == WAITING)
+    speedUp = SPEED_UP_WAITING;
+
+  newDate += (speedUp * 60 * diff)/1000; //TODO change 30
   unsigned int state = sys["state"].as<unsigned int>();
+  unsigned long currentDate = getCurrentDate();
 
   //Do this periodically
   if (currentDate - lastFetch > TIME_FETCHING) {
+    sys["lastUpdate"] = currentDate;
+    sys["currentState"] = currentState;
     putRequest(BASE_URL SYSTEM_ID PUT_ENDPOINT, sys, cloudMessage);
     state = sys["state"].as<unsigned int>();
-    addData(currentDate);
+    addData();
     lastFetch = currentDate;
+    newMilli = millis();
   }
 
   //If the system was stopped
@@ -157,16 +193,16 @@ void loopSystem() {
     return;
 
   if (currentState == RUNNING)
-    running(currentDate, state);
+    running(state);
   else if (currentState == WAITING)
-    waiting(currentDate, state);
+    waiting(state);
   else if (currentState == PAUSED)
-    paused(currentDate, state);
+    paused(state);
 
   sys["state"] = -1;
 }
 
-void addData(unsigned long currentDate) {
+void addData() {
   JsonArray jsonArray;
   if (sys.containsKey("data"))
     jsonArray = sys["data"].as<JsonArray>();
@@ -175,16 +211,16 @@ void addData(unsigned long currentDate) {
   JsonObject root = jsonArray.createNestedObject();
   root["temp"] = dht.getTemperature();
   root["hum"] = dht.getHumidity();
-  root["t"] = currentDate;
+  root["t"] = newDate;
 }
 
-void addStatus(unsigned long currentDate) {
+void addStatus(SystemState state) {
   JsonArray jsonArray;
   if (sys.containsKey("status"))
     jsonArray = sys["status"].as<JsonArray>();
   else jsonArray = sys.createNestedArray("status");
 
   JsonObject root = jsonArray.createNestedObject();
-  root["status"] = currentState;
-  root["t"] = currentDate;
+  root["status"] = state;
+  root["t"] = newDate;
 }

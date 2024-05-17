@@ -16,10 +16,16 @@
 #define SYSTEM_ID "arduino01"
 #define BASE_URL "https://scmu.azurewebsites.net/rest/boards/"
 #define PUT_ENDPOINT "/arduino"
+#define RESET_ENDPOINT "/reset"
 #define SYSTEM_FILE "/system.json"
-#define SPEED 60 * 30
-#define TIME_PAUSING 5 * SPEED //in seconds
-#define TIME_FETCHING 3 * SPEED //in seconds
+#define TIME_PAUSING 5 * 60 //in seconds
+#define TIME_FETCHING 3 //in seconds
+
+#define SPEED_UP_WAITING 60 //in seconds
+#define SPEED_UP_ACTING 1 //in seconds
+
+#define HUMIDITY_THRESHOLD 60
+#define TEMPERATURE_THRESHOLD 15
 
 //LCD stuff
 #define SDA 14
@@ -45,7 +51,7 @@
 
 void startSystem();
 void loopSystem();
-void addData(unsigned long currentDate);
-void addStatus(unsigned long currentDate);
+void addData();
+void addStatus(SystemState state);
 
 #endif
