@@ -1,6 +1,8 @@
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <Arduino.h>
 #include "structures.h"
 #include <limits.h>
@@ -14,6 +16,8 @@
 
 //Global stuff
 #define SYSTEM_ID "arduino01"
+#define SYSTEM_PWD "12345"
+
 #define BASE_URL "https://scmu.azurewebsites.net/rest/boards/"
 #define PUT_ENDPOINT "/arduino"
 #define RESET_ENDPOINT "/reset"
@@ -24,7 +28,7 @@
 #define SPEED_UP_WAITING 60 //in seconds
 #define SPEED_UP_ACTING 1 //in seconds
 
-#define HUMIDITY_THRESHOLD 60
+#define HUMIDITY_THRESHOLD 70
 #define TEMPERATURE_THRESHOLD 15
 
 //LCD stuff
@@ -39,6 +43,14 @@
 
 //Motion stuff
 #define MOTION 15
+//use motion digitalRead(MOTION)
+
+//Sonic stuff
+#define SONIC_TRIGGER 15
+#define SONIC_ECHO 16
+#define SONIC_MAX_DISTANCE 30
+#define SONIC_DISTANCE_TRIGGER 10
+#define SONIC_DELAY 1 //in seconds
 //use motion digitalRead(MOTION)
 
 //Servo stuff

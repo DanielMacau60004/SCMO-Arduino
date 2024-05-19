@@ -41,10 +41,6 @@ void writeFile(const char* file, JsonDocument& json) {
   writeFile(file, json, "w");
 }
 
-/*void appendFile(const char* file, JsonDocument& json) {
-  writeFile(file, json, "a");
-}*/
-
 void readFile(const char* file, JsonDocument& json) {
   dataFile = SPIFFS.open(file, "r");
   if (!dataFile) {
@@ -60,32 +56,6 @@ void readFile(const char* file, JsonDocument& json) {
 
   dataFile.close();
 }
-
-/*
-void readAppendFile(const char* file, JsonArray& jsonArray) {
-  File dataFile = SPIFFS.open(file, "r");
-  if (!dataFile) {
-    Serial.println("Error opening file for reading!");
-    return;
-  }
-
-  String line;
-  while (dataFile.available()) {
-    line = dataFile.readStringUntil('\n');
-    
-    DynamicJsonDocument doc(200);
-    DeserializationError error = deserializeJson(doc, line);
-    if (error) {
-      Serial.print("Failed to parse JSON: ");
-      Serial.println(error.c_str());
-    } else {
-      jsonArray.add(doc.as<JsonObject>());
-    }
-  }
-
-  dataFile.close();
-}*/
-
 
 bool existFile(const char* file) {
   return SPIFFS.exists(file);
