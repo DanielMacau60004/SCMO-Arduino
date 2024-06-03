@@ -10,6 +10,12 @@
 #include "internet.h"
 #include "system.h"
 
+enum ResponseCode {
+  SUCCESS,
+  DENIED,
+  FAILED
+};
+
 void initBluetooth();
 void connectBluetooth();
 void disconnectBluetooth();

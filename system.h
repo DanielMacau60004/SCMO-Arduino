@@ -28,7 +28,7 @@
 #define SPEED_UP_WAITING 60 //in seconds
 #define SPEED_UP_ACTING 1 //in seconds
 
-#define HUMIDITY_THRESHOLD 70
+#define HUMIDITY_THRESHOLD 60
 #define TEMPERATURE_THRESHOLD 15
 
 //LCD stuff

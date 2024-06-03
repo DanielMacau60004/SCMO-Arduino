@@ -25,33 +25,20 @@ std::vector<std::string> splitString(const std::string &str, char delimiter) {
 
 void auth(std::string name, std::string pwd) {
   bool result = name == SYSTEM_ID && pwd == SYSTEM_PWD;
-  std::string resultString = result ? "1" : "-1";
-  bleCharacteristic.writeValue(resultString.c_str());
-}
-
-void testWIFI(std::string name, std::string pwd, std::string json) {
-  if (!(name == SYSTEM_ID && pwd == SYSTEM_PWD)) {
-    bleCharacteristic.writeValue("-1");  //No permission
-    return;
-  }
-
-  storeWifiConfig(json.c_str());
-  connectToWifi(20);
-
-  bool connected = isWifiConnected();
-  std::string resultString = connected ? "1" : "0";
-
-  bleCharacteristic.writeValue(resultString.c_str());
+  bleCharacteristic.writeValue(String(result ? SUCCESS : DENIED).c_str());
 }
 
 void connectToWIFI(std::string name, std::string pwd, std::string json) {
   if (!(name == SYSTEM_ID && pwd == SYSTEM_PWD)) {
-    bleCharacteristic.writeValue("-1");  //No permission
+    bleCharacteristic.writeValue(String(DENIED).c_str());  //No permission
     return;
   }
 
   storeWifiConfig(json.c_str());
-  connectToWifi();
+  connectToWifi(10);
+
+  bool connected = isWifiConnected();
+  bleCharacteristic.writeValue(String(connected ? SUCCESS : FAILED).c_str());
 }
 
 void characteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
@@ -60,18 +47,18 @@ void characteristicWritten(BLEDevice central, BLECharacteristic characteristic) 
   receivedData += value;
   size_t newlinePos;
 
-  while ((newlinePos = receivedData.find('*')) != std::string::npos && newlinePos == receivedData.length() - 1) {
+  Serial.println(receivedData.c_str());
+  while ((newlinePos = receivedData.find('\n')) != std::string::npos && newlinePos == receivedData.length() - 1) {
     std::string message = receivedData.substr(0, newlinePos);
 
-    std::vector<std::string> tokens = splitString(message, ' ');
+    std::vector<std::string> tokens = splitString(message, '\t');
 
     if (tokens[0] == "auth" && tokens.size() == 3)
       auth(tokens[1], tokens[2]);
-    if (tokens[0] == "twifi" && tokens.size() == 4)
-      testWIFI(tokens[1], tokens[2], tokens[3]);
     else if (tokens[0] == "wifi" && tokens.size() == 4)
       connectToWIFI(tokens[1], tokens[2], tokens[3]);
-
+    else
+      bleCharacteristic.writeValue(String(FAILED).c_str());
     receivedData.erase(0, newlinePos + 1);
   }
 }
@@ -81,9 +68,11 @@ void communicate(void *parameter) {
     BLEDevice central = BLE.central();
 
     if (central) {
+      Serial.println("BLEDevice connected!");
       deviceConnected = true;
       while (central.connected()) {}
       deviceConnected = false;
+      Serial.println("BLEDevice disconnected!");
     }
   }
 }

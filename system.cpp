@@ -47,15 +47,15 @@ void cloudMessage(DynamicJsonDocument json) {
   int a_states[size];
   unsigned long a_times[size];
 
-  for (size_t i = originalStatusSize; i < size; ++i) {
-    JsonObject newElement = originalStatusArray[i];
-    a_states[i] = newElement["state"].as<int>();
+  for (size_t i = 0; i < size; ++i) {
+    JsonObject newElement = originalStatusArray[i + originalStatusSize];
+    a_states[i] = newElement["status"].as<int>();
     a_times[i] = newElement["t"].as<unsigned long>();
   }
 
   sys = json;
 
-  for (size_t i = originalStatusSize; i < size; ++i) {
+  for (size_t i = 0; i < size; ++i) {
     JsonObject root = sys["status"].createNestedObject();
     root["status"] = a_states[i];
     root["t"] = a_times[i];
@@ -130,6 +130,8 @@ void startSystem() {
   newDate = getCurrentDate();
   newMilli = millis();
 
+  sys["timeZone"] = getTimeZone();
+
   xTaskCreate(periodicFecth, "PeriodicFetch", 10000, NULL, 1, NULL);
 }
 
@@ -143,7 +145,7 @@ void running(unsigned int state) {
   }
 
   //Normal Stop
-  if (state == WAITING || timeRunning >= sys["duration"].as<unsigned long>() * 60) {
+  if (timeRunning >= sys["duration"].as<unsigned long>() * 60) {
     currentState = WAITING;
     addStatus(currentState);
     ledcWrite(SERVO_CHN, 0);
@@ -162,8 +164,8 @@ void running(unsigned int state) {
   //Check if the movement sensor fired
   if (state == PAUSED || hasMotions()) {
     ledcWrite(SERVO_CHN, 0);
-    currentState = PAUSED;
     timePaused = 0;
+    currentState = PAUSED;
     addStatus(currentState);
     return;
   }
@@ -187,7 +189,7 @@ void waiting(unsigned int state) {
 
   // Starting state
   if (local_time->tm_hour == hour && local_time->tm_yday > lastAction) {
-    if (dht.getHumidity() > HUMIDITY_THRESHOLD || dht.getTemperature() < TEMPERATURE_THRESHOLD) {  //Check weather conditions
+    if (sys["smart"].as<bool>() && (dht.getHumidity() > HUMIDITY_THRESHOLD || dht.getTemperature() < TEMPERATURE_THRESHOLD)) {  //Check weather conditions
       addStatus(CANCELED_SYSTEM);
       return;
     }
@@ -264,8 +266,12 @@ void addData() {
   else jsonArray = sys.createNestedArray("data");
 
   JsonObject root = jsonArray.createNestedObject();
-  root["temp"] = dht.getTemperature();
-  root["hum"] = dht.getHumidity();
+  float temp = dht.getTemperature();
+  float hum = dht.getHumidity();
+  sys["currentTemp"] = temp;
+  sys["currentHum"] = hum;
+  root["temp"] = temp;
+  root["hum"] = hum;
   root["t"] = newDate;
 }
 

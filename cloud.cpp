@@ -2,6 +2,7 @@
 #include "cloud.h"
 
 unsigned long currentDate = 0;
+String timezone = "";
 
 /*
 * Create a get request to the cloud
@@ -18,7 +19,7 @@ void getRequest(const char* url, fetchFunction fun) {
   http.begin(requestURL);
 
   int httpResponseCode = http.GET();
-  Serial.println(httpResponseCode);
+  //Serial.println(httpResponseCode);
   if (httpResponseCode == HTTP_CODE_OK) {
     String response = http.getString();
     int responseLength = http.getSize();
@@ -57,7 +58,7 @@ void postRequest(const char* url, DynamicJsonDocument& obj, fetchFunction fun) {
   serializeJson(obj, jsonString);
 
   int httpResponseCode = http.POST(jsonString);
-  Serial.println(httpResponseCode);
+  //Serial.println(httpResponseCode);
   if (httpResponseCode == HTTP_CODE_OK) {
     String response = http.getString();
     int responseLength = http.getSize();
@@ -89,7 +90,7 @@ void putRequest(const char* url, DynamicJsonDocument& obj, fetchFunction fun) {
   serializeJson(obj, jsonString);
 
   int httpResponseCode = http.PUT(jsonString);
-  Serial.println(httpResponseCode);
+  //Serial.println(httpResponseCode);
   if (httpResponseCode == HTTP_CODE_OK) {
     String response = http.getString();
     int responseLength = http.getSize();
@@ -110,8 +111,16 @@ void putRequest(const char* url, DynamicJsonDocument& obj, fetchFunction fun) {
 }
 
 void updateCurrentDate(DynamicJsonDocument json) {
-  unsigned long date = json["unixtime"].as<unsigned long>();
+  unsigned long date = json["unixtime"].as<unsigned long>() + json["dst_offset"].as<unsigned long>();
+  timezone = json["timezone"].as<String>();
   currentDate = date - millis() / 1000;
+
+  Serial.print("Current date: ");
+  Serial.println(currentDate);
+}
+
+String getTimeZone() {
+  return timezone;
 }
 
 void fetchCurrentDate() {
