@@ -22,11 +22,12 @@
 #define PUT_ENDPOINT "/arduino"
 #define RESET_ENDPOINT "/reset"
 #define SYSTEM_FILE "/system.json"
-#define TIME_PAUSING 5 * 60 //in seconds
+#define TIME_PAUSING 50 //in seconds
 #define TIME_FETCHING 3 //in seconds
 
-#define SPEED_UP_WAITING 60 //in seconds
-#define SPEED_UP_ACTING 1 //in seconds
+#define SPEED_UP_WAITING 60 * 60 //1 hour
+#define SPEED_UP_RUNNING 60 //1 minute
+#define SPEED_UP_PAUSED 10 //in second
 
 #define HUMIDITY_THRESHOLD 60
 #define TEMPERATURE_THRESHOLD 15

@@ -11,7 +11,7 @@ SystemState currentState;
 unsigned int state;
 unsigned long lastDate;
 unsigned long timeRunning;
-unsigned long timePaused;
+unsigned long timePausedStarted;
 
 unsigned long lastFetch;
 
@@ -164,7 +164,7 @@ void running(unsigned int state) {
   //Check if the movement sensor fired
   if (state == PAUSED || hasMotions()) {
     ledcWrite(SERVO_CHN, 0);
-    timePaused = 0;
+    timePausedStarted = millis();
     currentState = PAUSED;
     addStatus(currentState);
     return;
@@ -205,12 +205,9 @@ void waiting(unsigned int state) {
 }
 
 void paused(unsigned int state) {
+  int timePaused = (millis() - timePausedStarted) / 1000 * SPEED_UP_PAUSED;
 
-  timePaused += newDate - lastDate;
-  lastDate = newDate;
-
-  unsigned long minutes = (timePaused % 3600) / 60;
-  printLCD("Paused!", String(minutes) + " mins", 2);
+  printLCD("Paused!", String(timePaused) + " secs", 2);
 
   if (state == WAITING) {
     currentState = WAITING;
@@ -241,11 +238,12 @@ void loopSystem() {
   unsigned long diff = millis() - newMilli;
   newMilli = millis();
 
-  int speedUp = SPEED_UP_ACTING;
-  if (currentState == WAITING)
-    speedUp = SPEED_UP_WAITING;
-
-  newDate += (speedUp * 60 * diff) / 1000;
+  int speedUp = SPEED_UP_WAITING;
+  if (currentState == RUNNING)
+    speedUp = SPEED_UP_RUNNING;
+  else if(currentState == PAUSED)
+    speedUp = SPEED_UP_PAUSED;
+  newDate += (speedUp * diff) / 1000;
 
   //If the system was stopped
   if (!sys["active"])
